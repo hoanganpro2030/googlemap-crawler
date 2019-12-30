@@ -102,7 +102,7 @@ class InsCrawler(Logging):
     def get_user_profile(self):
         browser = self.browser
         # url = "%s/%s/" % (InsCrawler.URL, username)
-        url = "https://www.google.com/maps/place/Qu%C3%A1n+C%C6%A1m+C%C3%A2y+Th%E1%BB%8B/@10.8176936,106.6958795,19z/data=!4m5!3m4!1s0x317528ea0a282e31:0xb7070b0d852aeaaa!8m2!3d10.8170163!4d106.6954784?hl=vi-VN"
+        url = "https://www.google.com/maps/place/Ph%C6%A1%CC%89+bo%CC%80+Thi%C3%AAn+%C4%90i%C3%AA%CC%80n/@9.9092005,105.3183807,17z/data=!3m1!4b1!4m5!3m4!1s0x31a0bfcf69fb122f:0x3e7875353d70d283!8m2!3d9.9091952!4d105.3205747?hl=vi-VN"
         browser.get(url)
         name = browser.find_one(".GLOBAL__gm2-headline-5")
         print(name.text)
@@ -148,11 +148,34 @@ class InsCrawler(Logging):
         user_profile = self.get_user_profile()
         # if not number:
         #     number = instagram_int(user_profile["post_num"])
+        place = Place()
+        place.name = user_profile["name"]
 
         # self._dismiss_login_prompt()
 
         # if detail:
-        return self._get_posts_full()
+        self._get_posts_full(place)
+        rs = {
+                "name" : place.name,
+                "comments" : place.comments,
+                "comments_s" : place.comments_s,
+                "comments_a" : place.comments_a,
+                "comments_b" : place.comments_b,
+                "comments_c" : place.comments_c,
+                "comments_d" : place.comments_d,
+                "comments_e" : place.comments_e,
+                "comments_f" : place.comments_f,
+                "comments_g" : place.comments_g,
+                "comments_h" : place.comments_h,
+                "comments_i" : place.comments_i,
+                "stars" : place.stars,
+                "star1s" : place.star1s,
+                "star2s" : place.star2s,
+                "star3s" : place.star3s,
+                "star4s" : place.star4s,
+                "star5s" : place.star5s
+        }
+        return rs
         # else:
         #     return self._get_posts(number)
 
@@ -186,7 +209,7 @@ class InsCrawler(Logging):
             else:
                 break
 
-    def _get_posts_full(self):
+    def _get_posts_full(self, place):
         @retry()
         def check_next_post(cur_key):
             ele_a_datetime = browser.find_one(".eo2As .c-Yi7")
@@ -199,25 +222,29 @@ class InsCrawler(Logging):
                 raise RetryException()
 
         browser = self.browser
-        place = Place()
+        # place = Place()
         show_more_button = browser.find_one(".allxGeDnJMl__taparea")
         if show_more_button:
             show_more = browser.find_one("button", show_more_button)
             if show_more:
                 show_more.location_once_scrolled_into_view
                 show_more.click()
-                browser.implicitly_wait(1)
+                time.sleep(0.5)
         else:
             ele_comments = browser.find(".section-review")
             reviews = []
             for ele in ele_comments:
                 author = browser.find_one(".section-review-title", ele)
                 comment = browser.find_one(".section-review-review-content", ele)
+                star_eles = browser.find(".section-review-star-active", ele)
+                star_num = len(star_eles)
+                place.update_star(star_num)
                 if comment.text != '':
                     tsl = sample_translate_text(comment.text, "en-US", "bitcat")
                     print(tsl)
                     text = tsl.translations[0].translated_text
                     anal_text = analyze_sentiment(text)
+                    place.update_comments(anal_text.document_sentiment.score)
                     cmt = comment.text
                 else:
                     cmt = None
@@ -236,8 +263,9 @@ class InsCrawler(Logging):
         browser.driver.execute_script(jquery) #active the jquery lib
         try:
             for i in range(20):
-                browser.driver.execute_script("$('.section-loading.noprint')[0].scrollIntoView()")
-                browser.implicitly_wait(1)
+                browser.driver.execute_script("$('.section-loading.noprint' )[0].scrollIntoView()")
+                time.sleep(0.2)
+                # browser.implicitly_wait(1)
         except:
             pass
 
@@ -252,12 +280,13 @@ class InsCrawler(Logging):
                 comment = browser.find_one(".section-review-review-content", ele)
                 star_eles = browser.find(".section-review-star-active", ele)
                 star_num = len(star_eles)
-
-                if comment:
+                place.update_star(star_num)
+                if comment.text != '':
                     tsl = sample_translate_text(comment.text, "en-US", "bitcat")
                     print(tsl)
                     text = tsl.translations[0].translated_text
                     anal_text = analyze_sentiment(text)
+                    place.update_comments(anal_text.document_sentiment.score)
                     cmt = comment.text
                 else:
                     cmt = None
@@ -270,72 +299,72 @@ class InsCrawler(Logging):
                 }
                 reviews.append(review_ele)
             
-        ele_post = browser.find_one(".v1Nh3 a")
-        ele_post.click()
-        dict_posts = {}
+        # ele_post = browser.find_one(".v1Nh3 a")
+        # ele_post.click()
+        # dict_posts = {}
 
-        pbar = tqdm(total=num)
-        pbar.set_description("fetching")
-        cur_key = None
+        # pbar = tqdm(total=num)
+        # pbar.set_description("fetching")
+        # cur_key = None
 
-        # Fetching all posts
-        for _ in range(num):
-            dict_post = {}
+        # # Fetching all posts
+        # for _ in range(num):
+        #     dict_post = {}
 
-            # Fetching post detail
-            try:
-                check_next_post(cur_key)
+        #     # Fetching post detail
+        #     try:
+        #         check_next_post(cur_key)
 
-                # Fetching datetime and url as key
-                ele_a_datetime = browser.find_one(".eo2As .c-Yi7")
-                cur_key = ele_a_datetime.get_attribute("href")
-                dict_post["key"] = cur_key
-                fetch_datetime(browser, dict_post)
-                #fetch_imgs(browser, dict_post)
-                fetch_likes_plays(browser, dict_post)
-                fetch_likers(browser, dict_post)
-                fetch_caption(browser, dict_post)
-                fetch_comments(browser, dict_post)
+        #         # Fetching datetime and url as key
+        #         ele_a_datetime = browser.find_one(".eo2As .c-Yi7")
+        #         cur_key = ele_a_datetime.get_attribute("href")
+        #         dict_post["key"] = cur_key
+        #         fetch_datetime(browser, dict_post)
+        #         #fetch_imgs(browser, dict_post)
+        #         fetch_likes_plays(browser, dict_post)
+        #         fetch_likers(browser, dict_post)
+        #         fetch_caption(browser, dict_post)
+        #         fetch_comments(browser, dict_post)
 
-                # check if datetime was over a month ago 
-                a = datetime.strptime(dict_post["datetime"], '%Y-%m-%dT%H:%M:%S.%fZ')
-                a = time.mktime(a.timetuple())
-                if time.mktime(datetime.now().timetuple()) - a > 2592000:
-                    break
+        #         # check if datetime was over a month ago 
+        #         a = datetime.strptime(dict_post["datetime"], '%Y-%m-%dT%H:%M:%S.%fZ')
+        #         a = time.mktime(a.timetuple())
+        #         if time.mktime(datetime.now().timetuple()) - a > 2592000:
+        #             break
 
-            except RetryException:
-                sys.stderr.write(
-                    "\x1b[1;31m"
-                    + "Failed to fetch the post: "
-                    + cur_key or 'URL not fetched'
-                    + "\x1b[0m"
-                    + "\n"
-                )
-                break
+        #     except RetryException:
+        #         sys.stderr.write(
+        #             "\x1b[1;31m"
+        #             + "Failed to fetch the post: "
+        #             + cur_key or 'URL not fetched'
+        #             + "\x1b[0m"
+        #             + "\n"
+        #         )
+        #         break
 
-            except Exception:
-                sys.stderr.write(
-                    "\x1b[1;31m"
-                    + "Failed to fetch the post: "
-                    + cur_key if isinstance(cur_key,str) else 'URL not fetched'
-                    + "\x1b[0m"
-                    + "\n"
-                )
-                traceback.print_exc()
+        #     except Exception:
+        #         sys.stderr.write(
+        #             "\x1b[1;31m"
+        #             + "Failed to fetch the post: "
+        #             + cur_key if isinstance(cur_key,str) else 'URL not fetched'
+        #             + "\x1b[0m"
+        #             + "\n"
+        #         )
+        #         traceback.print_exc()
 
-            self.log(json.dumps(dict_post, ensure_ascii=False))
-            dict_posts[browser.current_url] = dict_post
+        #     self.log(json.dumps(dict_post, ensure_ascii=False))
+        #     dict_posts[browser.current_url] = dict_post
 
-            pbar.update(1)
-            left_arrow = browser.find_one(".HBoOv")
-            if left_arrow:
-                left_arrow.click()
+        #     pbar.update(1)
+        #     left_arrow = browser.find_one(".HBoOv")
+        #     if left_arrow:
+        #         left_arrow.click()
 
-        pbar.close()
-        posts = list(dict_posts.values())
-        if posts:
-            posts.sort(key=lambda post: post["datetime"], reverse=True)
-        return posts
+        # pbar.close()
+        # posts = list(dict_posts.values())
+        # if posts:
+        #     posts.sort(key=lambda post: post["datetime"], reverse=True)
+        # return posts
 
     def _get_posts(self, num):
         """
