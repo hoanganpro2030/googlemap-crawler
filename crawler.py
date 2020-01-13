@@ -10,6 +10,7 @@ from google.cloud import translate_v2
 from inscrawler import InsCrawler
 from inscrawler.settings import override_settings
 from inscrawler.settings import prepare_override_settings
+
 import os
 os.environ["GOOGLE_APPLICATION_CREDENTIALS"]="/home/pain/Downloads/bitcat-40862d8e3192.json"
 

@@ -1,25 +1,31 @@
-class Place:
-    name = ""
-    comments = 0
-    comments_s = 0      #1.0-0.8
-    comments_a = 0      #0.8-0.6
-    comments_b = 0      #0.6-0.4
-    comments_c = 0      #0.4-0.2
-    comments_d = 0      #0.2-0.0
-    comments_e = 0      #0.0 - -0.2
-    comments_f = 0      #-0.2 - -0.4
-    comments_g = 0      #-0.4 - -0.6
-    comments_h = 0      #-0.6 - -0.8
-    comments_i = 0      #-0.8 - -1.0
-    stars = 0
-    star1s = 0
-    star2s = 0
-    star3s = 0
-    star4s = 0
-    star5s = 0
+from mongoengine import *
 
-    def __init__(self):
-        pass
+
+class Place(Document):
+    place_id = StringField(required=True, unique=True)
+    name = StringField(required=True)
+    address = StringField(required=True)
+    location = DictField(required=True)
+    comment_list = ListField(DictField())
+
+    reviewer_quant = IntField(required=True, default=0)
+    comments = IntField(required=True, default=0)
+    comments_s = IntField(required=True, default=0)      #1.0-0.8
+    comments_a = IntField(required=True, default=0)      #0.8-0.6
+    comments_b = IntField(required=True, default=0)      #0.6-0.4
+    comments_c = IntField(required=True, default=0)      #0.4-0.2
+    comments_d = IntField(required=True, default=0)      #0.2-0.0
+    comments_e = IntField(required=True, default=0)      #0.0 - -0.2
+    comments_f = IntField(required=True, default=0)      #-0.2 - -0.4
+    comments_g = IntField(required=True, default=0)      #-0.4 - -0.6
+    comments_h = IntField(required=True, default=0)      #-0.6 - -0.8
+    comments_i = IntField(required=True, default=0)      #-0.8 - -1.0
+    stars = FloatField(required=True, default=0.0)
+    star1s = IntField(required=True, default=0)
+    star2s = IntField(required=True, default=0)
+    star3s = IntField(required=True, default=0)
+    star4s = IntField(required=True, default=0)
+    star5s = IntField(required=True, default=0)
 
     def update_star(self, n):
         if n == 1:
