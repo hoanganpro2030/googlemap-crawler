@@ -33,6 +33,10 @@ from google.cloud import translate
 from google.cloud import language
 from google.cloud.language import enums
 from google.cloud.language import types
+from langdetect import detect
+from langdetect import DetectorFactory
+DetectorFactory.seed = 0
+
 
 class Logging(object):
     PREFIX = "instagram-crawler"
@@ -75,34 +79,10 @@ class InsCrawler(Logging):
         self.browser = Browser(has_screen)
         self.page_height = 0
 
-    # def _dismiss_login_prompt(self):
-    #     ele_login = self.browser.find_one(".Ls00D .Szr5J")
-    #     if ele_login:
-    #         ele_login.click()
-
-    # def login(self):
-    #     browser = self.browser
-    #     url = "%s/accounts/login/" % (InsCrawler.URL)
-    #     browser.get(url)
-    #     u_input = browser.find_one('input[name="username"]')
-    #     u_input.send_keys(secret.username)
-    #     p_input = browser.find_one('input[name="password"]')
-    #     p_input.send_keys(secret.password)
-
-    #     login_btn = browser.find_one(".L3NKy")
-    #     login_btn.click()
-
-    #     @retry()
-    #     def check_login():
-    #         if browser.find_one('input[name="username"]'):
-    #             raise RetryException()
-
-    #     check_login()
-
     def get_user_profile(self):
         browser = self.browser
         # url = "%s/%s/" % (InsCrawler.URL, username)
-        url = "https://www.google.com/maps/place/Nh%C3%A0+H%C3%A0ng+Tr%E1%BB%8Dng+H%E1%BB%AFu/@10.0185718,105.7715603,13.25z/data=!4m8!1m2!2m1!1zTmjDoCBow6BuZw!3m4!1s0x31a0883725404171:0x92de2cfbe8c9d00d!8m2!3d10.0205586!4d105.7636409?hl=en-US"
+        url = "https://www.google.com/maps/place/Qu%C3%A1n+%C4%82n+Bi%E1%BB%83n+Xanh/@10.8096823,106.7092435,14z/data=!4m8!1m2!2m1!1sbien+xanh!3m4!1s0x317527a6c94abdf3:0x28eb4efba2da6210!8m2!3d10.844343!4d106.7660651"
         browser.get(url)
         name = browser.find_one(".GLOBAL__gm2-headline-5")
         print(name.text)
@@ -120,27 +100,6 @@ class InsCrawler(Logging):
             "star": star.text,
             "review_no": reviews_no.text
         }
-
-    # def get_user_profile_from_script_shared_data(self, username):
-    #     browser = self.browser
-    #     url = "%s/%s/" % (InsCrawler.URL, username)
-    #     browser.get(url)
-    #     source = browser.driver.page_source
-    #     p = re.compile(r"window._sharedData = (?P<json>.*?);</script>", re.DOTALL)
-    #     json_data = re.search(p, source).group("json")
-    #     data = json.loads(json_data)
-
-    #     user_data = data["entry_data"]["ProfilePage"][0]["graphql"]["user"]
-
-    #     return {
-    #         "name": user_data["full_name"],
-    #         "desc": user_data["biography"],
-    #         "photo_url": user_data["profile_pic_url_hd"],
-    #         "post_num": user_data["edge_owner_to_timeline_media"]["count"],
-    #         "follower_num": user_data["edge_followed_by"]["count"],
-    #         "following_num": user_data["edge_follow"]["count"],
-    #         "website": user_data["external_url"],
-    #     }
 
     def get_user_posts(self):
         user_profile = self.get_user_profile()
@@ -174,38 +133,6 @@ class InsCrawler(Logging):
                 "star5s" : place.star5s
         }
         return rs
-        # else:
-        #     return self._get_posts(number)
-
-    # def get_latest_posts_by_tag(self, tag, num):
-    #     url = "%s/explore/tags/%s/" % (InsCrawler.URL, tag)
-    #     self.browser.get(url)
-    #     return self._get_posts(num)
-
-    # def auto_like(self, tag="", maximum=1000):
-    #     self.login()
-    #     browser = self.browser
-    #     if tag:
-    #         url = "%s/explore/tags/%s/" % (InsCrawler.URL, tag)
-    #     else:
-    #         url = "%s/explore/" % (InsCrawler.URL)
-    #     self.browser.get(url)
-
-    #     ele_post = browser.find_one(".v1Nh3 a")
-    #     ele_post.click()
-
-    #     for _ in range(maximum):
-    #         heart = browser.find_one(".dCJp8 .glyphsSpriteHeart__outline__24__grey_9")
-    #         if heart:
-    #             heart.click()
-    #             randmized_sleep(2)
-
-    #         left_arrow = browser.find_one(".HBoOv")
-    #         if left_arrow:
-    #             left_arrow.click()
-    #             randmized_sleep(2)
-    #         else:
-    #             break
 
     def _get_posts_full(self, place):
         browser = self.browser
@@ -231,7 +158,8 @@ class InsCrawler(Logging):
         jquery = jquery_js.read() #read the jquery from a file
         browser.driver.execute_script(jquery) #active the jquery lib
         try:
-            for i in range(20):
+            for i in range(2000):
+                print(i)
                 browser.driver.execute_script("$('.section-loading.noprint' )[0].scrollIntoView()")
                 time.sleep(0.2)
                 # browser.implicitly_wait(1)
@@ -239,8 +167,8 @@ class InsCrawler(Logging):
             pass
         
         comment_section = browser.find(".section-layout")
-        if len(comment_section) == 5:
-            ele_comments = browser.find(".section-review-content", comment_section[4])
+        if len(comment_section) == 6:
+            ele_comments = browser.find(".section-review-content", comment_section[5])
             self._parse_comment(ele_comments, place)
         
         return
@@ -249,6 +177,7 @@ class InsCrawler(Logging):
     def _parse_comment(self, ele_comments, place):
         browser = self.browser
         reviews = []
+        tsl_document = ""
         for ele in ele_comments:
             author = browser.find_one(".section-review-title", ele)
             comment = browser.find_one(".section-review-review-content", ele)
@@ -261,88 +190,40 @@ class InsCrawler(Logging):
                     text = text.split('(Translated by Google)')[-1][1:]
                     text = text.split('\n\n(Original)\n')[0]
                 else:
-                    tsl = sample_translate_text(text, "en-US", "bitcat")
-                    text = tsl.translations[0].translated_text
-
-                # tsl = sample_translate_text(comment.text, "en-US", "bitcat")
-                # text = tsl.translations[0].translated_text
-                anal_text = analyze_sentiment(text)
-                place.update_comments(anal_text.document_sentiment.score)
+                    if detect(text) in ('vi', 'pt', 'tl', 'fi'):
+                        tsl = sample_translate_text(text, "en-US", "bitcat")
+                        text = tsl.translations[0].translated_text
+                if text[-1] == ".":
+                    tsl_document += text + " i @ i. " 
+                else:
+                    tsl_document += text + ". i @ i. " 
+                # anal_text = analyze_sentiment(text)
+                # place.update_comments(anal_text.document_sentiment.score)
                 cmt = comment.text
+
             else:
                 cmt = None
             review_ele = {
                 "author": author.text,
                 "comment": cmt,
-                "magnitude": anal_text.document_sentiment.magnitude,
-                "score": anal_text.document_sentiment.score,
                 "star_num": star_num
             }
             reviews.append(review_ele)
+
+        anal_doc = analyze_sentiment(tsl_document)
+        sentence_sentiment = 0
+        sentence_num = 0
+        for index, sentence in enumerate(anal_doc.sentences):
+            print(index)
+            if "i @ i" in sentence.text.content and sentence_num != 0:
+                place.update_comments(sentence_sentiment / sentence_num)
+                print(sentence_sentiment)
+                sentence_sentiment = 0
+                sentence_num = 0
+                continue
+            sentence_sentiment += sentence.sentiment.score
+            sentence_num += 1
         return reviews
-
-
-    # def _get_posts(self, num):
-    #     """
-    #         To get posts, we have to click on the load more
-    #         button and make the browser call post api.
-    #     """
-    #     TIMEOUT = 600
-    #     browser = self.browser
-    #     key_set = set()
-    #     posts = []
-    #     pre_post_num = 0
-    #     wait_time = 1
-
-    #     pbar = tqdm(total=num)
-
-    #     def start_fetching(pre_post_num, wait_time):
-    #         ele_posts = browser.find(".v1Nh3 a")
-    #         for ele in ele_posts:
-    #             key = ele.get_attribute("href")
-    #             if key not in key_set:
-    #                 dict_post = { "key": key }
-    #                 ele_img = browser.find_one(".KL4Bh img", ele)
-    #                 dict_post["caption"] = ele_img.get_attribute("alt")
-    #                 dict_post["img_url"] = ele_img.get_attribute("src")
-
-    #                 fetch_details(browser, dict_post)
-
-    #                 key_set.add(key)
-    #                 posts.append(dict_post)
-
-    #                 if len(posts) == num:
-    #                     break
-
-    #         if pre_post_num == len(posts):
-    #             pbar.set_description("Wait for %s sec" % (wait_time))
-    #             sleep(wait_time)
-    #             pbar.set_description("fetching")
-
-    #             wait_time *= 2
-    #             browser.scroll_up(300)
-    #         else:
-    #             wait_time = 1
-
-    #         pre_post_num = len(posts)
-    #         browser.scroll_down()
-
-    #         return pre_post_num, wait_time
-
-    #     pbar.set_description("fetching")
-    #     while len(posts) < num and wait_time < TIMEOUT:
-    #         post_num, wait_time = start_fetching(pre_post_num, wait_time)
-    #         pbar.update(post_num - pre_post_num)
-    #         pre_post_num = post_num
-
-    #         loading = browser.find_one(".W1Bne")
-    #         if not loading and wait_time > TIMEOUT / 2:
-    #             break
-
-    #     pbar.close()
-    #     print("Done. Fetched %s posts." % (min(len(posts), num)))
-    #     return posts[:num]
-
 
 def sample_translate_text(text, target_language, project_id):
     """
@@ -396,7 +277,6 @@ def analyze_sentiment(text):
         
     return response
 
-# def mean(arr):
     
 
 
