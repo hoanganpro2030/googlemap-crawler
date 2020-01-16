@@ -9,7 +9,7 @@ class Place(Document):
     comment_list = ListField(DictField())
 
     reviewer_quant = IntField(required=True, default=0)
-    comments = IntField(required=True, default=0)
+    # comments = ListField(DictField(), required=True, default=0)
     comments_s = IntField(required=True, default=0)      #1.0-0.8
     comments_a = IntField(required=True, default=0)      #0.8-0.6
     comments_b = IntField(required=True, default=0)      #0.6-0.4

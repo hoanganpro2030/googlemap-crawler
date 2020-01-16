@@ -35,7 +35,9 @@ from google.cloud.language import enums
 from google.cloud.language import types
 from langdetect import detect
 from langdetect import DetectorFactory
+from mongoengine import *
 DetectorFactory.seed = 0
+connect('gg-place')
 
 
 class Logging(object):
@@ -82,23 +84,18 @@ class InsCrawler(Logging):
     def get_user_profile(self):
         browser = self.browser
         # url = "%s/%s/" % (InsCrawler.URL, username)
-        url = "https://www.google.com/maps/place/Qu%C3%A1n+%C4%82n+Bi%E1%BB%83n+Xanh/@10.8096823,106.7092435,14z/data=!4m8!1m2!2m1!1sbien+xanh!3m4!1s0x317527a6c94abdf3:0x28eb4efba2da6210!8m2!3d10.844343!4d106.7660651"
+        url = "https://www.google.com/maps/place/%C3%82n+Nam+Qu%C3%A1n+-+59+Nguy%E1%BB%85n+B%E1%BB%89nh+Khi%C3%AAm/@10.7907069,106.6943076,17z/data=!4m13!1m7!3m6!1s0x3175267f1c6f9ea1:0xbecd38cc31f49c06!2zUXXhuq1uIDIsIEjhu5MgQ2jDrSBNaW5oLCBWaeG7h3QgTmFt!3b1!8m2!3d10.7872729!4d106.7498105!3m4!1s0x317528b512949267:0xa16e36d98c086b4b!8m2!3d10.7908535!4d106.7009199"
         browser.get(url)
         name = browser.find_one(".GLOBAL__gm2-headline-5")
         print(name.text)
         star = browser.find_one(".section-star-display")
-        # if not star:
-        #     return {
-        #     "name": name.text,
-        #     "star": None,
-        #     "review_no": None
-        # }
         reviews_no = browser.find_one(".widget-pane-link")
+
         print(reviews_no.text)
         return {
             "name": name.text,
             "star": star.text,
-            "review_no": reviews_no.text
+            "review_no": reviews_no.text.replace(',', '')
         }
 
     def get_user_posts(self):
@@ -107,30 +104,32 @@ class InsCrawler(Logging):
         #     number = instagram_int(user_profile["post_num"])
         place = Place()
         place.name = user_profile["name"]
-
+        place.reviewer_quant = int(user_profile["review_no"][1:-1])
+        place.stars = float(user_profile["star"])
         # self._dismiss_login_prompt()
 
         # if detail:
         self._get_posts_full(place)
         rs = {
-                "name" : place.name,
-                "comments" : place.comments,
-                "comments_s" : place.comments_s,
-                "comments_a" : place.comments_a,
-                "comments_b" : place.comments_b,
-                "comments_c" : place.comments_c,
-                "comments_d" : place.comments_d,
-                "comments_e" : place.comments_e,
-                "comments_f" : place.comments_f,
-                "comments_g" : place.comments_g,
-                "comments_h" : place.comments_h,
-                "comments_i" : place.comments_i,
-                "stars" : place.stars,
-                "star1s" : place.star1s,
-                "star2s" : place.star2s,
-                "star3s" : place.star3s,
-                "star4s" : place.star4s,
-                "star5s" : place.star5s
+                "name": place.name,
+                "reviewer_quant": place.reviewer_quant,
+                "comments_s": place.comments_s,
+                "comments_a": place.comments_a,
+                "comments_b": place.comments_b,
+                "comments_c": place.comments_c,
+                "comments_d": place.comments_d,
+                "comments_e": place.comments_e,
+                "comments_f": place.comments_f,
+                "comments_g": place.comments_g,
+                "comments_h": place.comments_h,
+                "comments_i": place.comments_i,
+                "stars": place.stars,
+                "star1s": place.star1s,
+                "star2s": place.star2s,
+                "star3s": place.star3s,
+                "star4s": place.star4s,
+                "star5s": place.star5s,
+                "all_reviews": place.comment_list
         }
         return rs
 
@@ -154,14 +153,14 @@ class InsCrawler(Logging):
 
 
         ########### Section for place have show more button #############
-        jquery_js = open('/home/pain/Desktop/DCLV/jquery-3.4.1.min.js', 'r')
+        jquery_js = open('/mnt/d/googlemap-crawler/jquery-3.4.1.min.js', 'r')
         jquery = jquery_js.read() #read the jquery from a file
         browser.driver.execute_script(jquery) #active the jquery lib
         try:
             for i in range(2000):
                 print(i)
                 browser.driver.execute_script("$('.section-loading.noprint' )[0].scrollIntoView()")
-                time.sleep(0.2)
+                time.sleep(0.01)
                 # browser.implicitly_wait(1)
         except:
             pass
@@ -169,6 +168,9 @@ class InsCrawler(Logging):
         comment_section = browser.find(".section-layout")
         if len(comment_section) == 6:
             ele_comments = browser.find(".section-review-content", comment_section[5])
+            self._parse_comment(ele_comments, place)
+        elif len(comment_section) == 5:
+            ele_comments = browser.find(".section-review-content", comment_section[4])
             self._parse_comment(ele_comments, place)
         
         return
@@ -190,9 +192,12 @@ class InsCrawler(Logging):
                     text = text.split('(Translated by Google)')[-1][1:]
                     text = text.split('\n\n(Original)\n')[0]
                 else:
-                    if detect(text) in ('vi', 'pt', 'tl', 'fi'):
-                        tsl = sample_translate_text(text, "en-US", "bitcat")
-                        text = tsl.translations[0].translated_text
+                    try:
+                        if detect(text) in ('vi', 'pt', 'tl', 'fi'):
+                            tsl = sample_translate_text(text, "en-US", "bitcat")
+                            text = tsl.translations[0].translated_text
+                    except:
+                        continue
                 if text[-1] == ".":
                     tsl_document += text + " i @ i. " 
                 else:
@@ -209,7 +214,7 @@ class InsCrawler(Logging):
                 "star_num": star_num
             }
             reviews.append(review_ele)
-
+        place.comment_list = reviews
         anal_doc = analyze_sentiment(tsl_document)
         sentence_sentiment = 0
         sentence_num = 0
